@@ -71,8 +71,7 @@ class Crud
 		// Hydrate our model
 		$this->fill((array) $attributes);
 
-		// Set is_new flag. If none is provided, but we have got a primary key
-		// it must exist in the database
+		// Set is_new flag. If the primary key is passed, the model is not new
 		$this->is_new = (array_key_exists(static::$key, $attributes) ? false : true;
 	}
 

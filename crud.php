@@ -72,7 +72,7 @@ class Crud
 		$this->fill((array) $attributes);
 
 		// Set is_new flag. If the primary key is passed, the model is not new
-		$this->is_new = (array_key_exists(static::$key, $attributes) ? false : true;
+		$this->is_new = (array_key_exists(static::$key, $attributes)) ? false : true;
 	}
 
 	/**
@@ -291,7 +291,7 @@ class Crud
 		if ($this->is_new)
 		{
 			$this->created_at = $this->updated_at;
-		)
+		}
 	}
 
 	/**

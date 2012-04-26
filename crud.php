@@ -165,9 +165,9 @@ class Crud
 	 *
 	 * @return string
 	 */
-	public function table()
+	public static function table()
 	{
-		return static::$table ?: strtolower(Str::plural(class_basename($this)));
+		return static::$table ?: strtolower(Str::plural(class_basename(new static)));
 	}
 
 	/**
@@ -264,9 +264,9 @@ class Crud
 	 *
 	 * @return Query
 	 */
-	public function query()
+	public static function query()
 	{
-		return DB::connection(static::$connection)->table($this->table());
+		return DB::connection(static::$connection)->table(static::table());
 	}
 
 	/**
@@ -277,6 +277,14 @@ class Crud
 	public function validation()
 	{
 		return $this->validation;
+	}
+
+	/**
+	 * Returns the number of records in the table
+	 */
+	public static function count()
+	{
+		return static::query()->count();
 	}
 
 	/**

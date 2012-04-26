@@ -49,11 +49,11 @@ class Crud
 	protected $attributes = array();
 
 	/**
-	 * Indicates if the model exists in the database.
+	 * Indicates if the model is new or not (insert vs update).
 	 *
 	 * @var  bool
 	 */
-	protected $exists = false;
+	protected $is_new = false;
 
 	/**
 	 * @var  validation object
@@ -64,17 +64,16 @@ class Crud
 	 * Create a new Crud model instance.
 	 *
 	 * @param  array  $attributes
-	 * @param  bool   $exists
 	 * @return void
 	 */
-	public function __construct($attributes = array(), $exists = null)
+	public function __construct($attributes = array())
 	{
 		// Hydrate our model
 		$this->fill((array) $attributes);
 
-		// Set exists flag. If none is provided, but we have got a primary key
+		// Set is_new flag. If none is provided, but we have got a primary key
 		// it must exist in the database
-		$this->exists = ($exists === null) ? array_key_exists(static::$key, $attributes) : (bool) $exists;
+		$this->is_new = (array_key_exists(static::$key, $attributes) ? false : true;
 	}
 
 	/**
@@ -107,10 +106,10 @@ class Crud
 		// prep attribute values after validation is done
 		$attributes = $this->prep_attributes($attributes);
 
-		// If the model exists, we only need to update it in the database, and the update
+		// If the model is not new, we only need to update it in the database, and the update
 		// will be considered successful if there is one affected row returned from the
 		// fluent query instance. We'll set the where condition automatically.
-		if ($this->exists)
+		if ( ! $this->is_new)
 		{
 			// grab the key and remove it from the attributes array
 			$key = $attributes[static::$key];
@@ -127,7 +126,7 @@ class Crud
 			$result = $query->update($attributes) === 1;
 		}
 
-		// If the model does not exist, we will insert the record and retrieve the last
+		// If the model is new, we will insert the record and retrieve the last
 		// insert ID that is associated with the model. If the ID returned is numeric
 		// then we can consider the insert successful.
 		else
@@ -140,7 +139,7 @@ class Crud
 
 			$result = $this->after_insert($result);
 
-			$this->exists = (bool) $result;
+			$this->is_new = ( (bool) $result ) ? false : true;
 		}
 
 		return $result;
@@ -219,7 +218,7 @@ class Crud
 
 		if (count($result) > 0)
 		{
-			return $model->exists(true)
+			return $model->is_new(false)
 			             ->fill($result);
 		}
 
@@ -249,14 +248,14 @@ class Crud
 	 *
 	 * @return object|bool
 	 */
-	protected function exists($exists = null)
+	protected function is_new($is_new = null)
 	{
-		if ($exists === null)
+		if ($is_new === null)
 		{
-			return $this->exists;
+			return $this->is_new;
 		}
 
-		$this->exists = (bool) $exists;
+		$this->is_new = (bool) $is_new;
 
 		return $this;
 	}
@@ -290,7 +289,10 @@ class Crud
 	{
 		$this->updated_at = time();
 
-		if ( ! $this->exists) $this->created_at = $this->updated_at;
+		if ($this->is_new)
+		{
+			$this->created_at = $this->updated_at;
+		)
 	}
 
 	/**

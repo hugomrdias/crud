@@ -39,12 +39,16 @@ class Crud
 	protected static $timestamps = true;
 
 	/**
-	 * @var  array  $rules  Validation rules for model attributes
+	 * Validation rules for model attributes.
+	 *
+	 * @var array
 	 */
 	protected static $rules = array();
 
 	/**
 	 * Attributes for the model
+	 *
+	 * @var array
 	 */
 	protected $attributes = array();
 
@@ -60,19 +64,26 @@ class Crud
 	 */
 	protected $validation = null;
 
+	/*
+	|--------------------------------------------------------------------------
+	| Object Usage
+	|--------------------------------------------------------------------------
+	*/
+
 	/**
 	 * Create a new Crud model instance.
 	 *
 	 * @param  array  $attributes
+	 * @param  bool   $is_new
 	 * @return void
 	 */
-	public function __construct($attributes = array())
+	public function __construct($attributes = array(), $is_new = null)
 	{
 		// Hydrate our model
 		$this->fill((array) $attributes);
 
 		// Set is_new flag. If the primary key is passed, the model is not new
-		$this->is_new = (array_key_exists(static::$key, $attributes)) ? false : true;
+		$this->is_new = ($is_new === null) ? ( !array_key_exists(static::$key, $attributes)) : (bool) $is_new;
 	}
 
 	/**
@@ -161,16 +172,6 @@ class Crud
 	}
 
 	/**
-	 * Get the name of the table associated with the model.
-	 *
-	 * @return string
-	 */
-	public static function table()
-	{
-		return static::$table ?: strtolower(Str::plural(class_basename(new static)));
-	}
-
-	/**
 	 * Hydrate the model with an array of attributes.
 	 *
 	 * @param  array  $attributes
@@ -197,49 +198,66 @@ class Crud
 	}
 
 	/**
-	 * Find a model by its primary key.
+	 * Returns the a validation object for the model.
 	 *
-	 * @param  string  $id
-	 * @param  array   $columns
-	 * @return Model
+	 * @return  object  Validation object
 	 */
-	public static function find($id, $columns = array('*'))
+	public function validation()
 	{
-		$model = new static;
-
-		$query = $model->query()->where(static::$key, '=', $id);
-
-		list($query, $columns) = $this->before_find($query, $columns);
-
-		$result = $query->take(1)->get($columns);
-
-		$result = $this->after_find($results);
-
-		if (count($result) > 0)
+		if ( ! $this->validation)
 		{
-			return $model->is_new(false)
-			             ->fill($result);
+			$this->validation = Validator::make($attributes, static::$rules);
 		}
 
-		return null;
+		return $this->validation;
 	}
 
 	/**
-	 * Get all of the models in the database.
+	 * Dynamically retrieve the value of an attribute.
 	 *
-	 * @return array
+	 * @param  string  $key
+	 * @return mixed
 	 */
-	public static function all()
+	public function __get($key)
 	{
-		$results = with(new static)->query()->get();
-		$models  = array();
-
-		foreach ($results as $result)
+		if (array_key_exists($key, $this->attributes))
 		{
-			$models[] = new static($result, true);
+			return $this->attributes[$key];
 		}
+	}
 
-		return $models;
+	/**
+	 * Dynamically set the value of an attribute.
+	 *
+	 * @param  string  $key
+	 * @param  mixed   $value
+	 * @return void
+	 */
+	public function __set($key, $value)
+	{
+		$this->attributes[$key] = $value;
+	}
+
+	/**
+	 * Dynamically check if an attribute is set.
+	 *
+	 * @param  string  $key
+	 * @return bool
+	 */
+	public function __isset($key)
+	{
+		return isset($this->attributes[$key]);
+	}
+
+	/**
+	 * Dynamically unset an attribute.
+	 *
+	 * @param  string  $key
+	 * @return void
+	 */
+	public function __unset($key)
+	{
+		unset($this->{$key});
 	}
 
 	/**
@@ -260,34 +278,6 @@ class Crud
 	}
 
 	/**
-	 * Get a new fluent query builder instance for the model.
-	 *
-	 * @return Query
-	 */
-	public static function query()
-	{
-		return DB::connection(static::$connection)->table(static::table());
-	}
-
-	/**
-	 * Returns the a validation object for the model.
-	 *
-	 * @return  object  Validation object
-	 */
-	public function validation()
-	{
-		return $this->validation;
-	}
-
-	/**
-	 * Returns the number of records in the table
-	 */
-	public static function count()
-	{
-		return static::query()->count();
-	}
-
-	/**
 	 * Set the update and creation timestamps on the model.
 	 *
 	 * @return void
@@ -303,25 +293,50 @@ class Crud
 	}
 
 	/**
-	 * Gets called before find() is executed to modify the query
-	 * Must return an array of the query object and columns array($query, $columns)
+	 * Run validation
 	 *
-	 * @return  array  $query object and $columns array
+	 * @return bool
 	 */
-	protected function before_find($query, $columns)
+	protected function run_validation($attributes)
 	{
-		return array($query, $columns);
+		$attributes = $this->before_validation($attributes);
+
+		$result = $this->after_validation($this->validation()->fails());
+
+		return ($result) ? false : true;
 	}
 
 	/**
-	 * Gets call after the find() query is exectuted to modify the result
-	 * Must return a proper result
+	 * Gets called before the validation is ran.
 	 *
-	 * @return  object  Model object result
+	 * @param   array  $data  The validation data
+	 * @return  array
 	 */
-	protected function after_find($result)
+	protected function before_validation($data)
+	{
+		return $data;
+	}
+
+	/**
+	 * Called right after the validation is ran.
+	 *
+	 * @param   bool  $result  Validation result
+	 * @return  bool
+	 */
+	protected function after_validation($result)
 	{
 		return $result;
+	}
+
+	/**
+	 * Called right after validation before inserting/updating to the database
+	 *
+	 * @param   array  $attributes  attribute array
+	 * @return  array
+	 */
+	protected function prep_attributes($attributes)
+	{
+		return $attributes;
 	}
 
 	/**
@@ -391,100 +406,115 @@ class Crud
 	}
 
 	/**
-	 * Run validation
+	 * Gets called before find() is executed to modify the query
+	 * Must return an array of the query object and columns array($query, $columns)
 	 *
-	 * @return bool
+	 * @return  array  $query object and $columns array
 	 */
-	protected function run_validation($attributes)
+	protected function before_find($query, $columns)
 	{
-		$attributes = $this->before_validation($attributes);
-
-		$this->validation = Validator::make($attributes, static::$rules);
-
-		$result = $this->after_validation($this->validation->fails());
-
-		return ($result) ? false : true;
+		return array($query, $columns);
 	}
 
 	/**
-	 * Gets called before the validation is ran.
+	 * Gets call after the find() query is exectuted to modify the result
+	 * Must return a proper result
 	 *
-	 * @param   array  $data  The validation data
-	 * @return  array
+	 * @return  object  Model object result
 	 */
-	protected function before_validation($data)
-	{
-		return $data;
-	}
-
-	/**
-	 * Called right after the validation is ran.
-	 *
-	 * @param   bool  $result  Validation result
-	 * @return  bool
-	 */
-	protected function after_validation($result)
+	protected function after_find($result)
 	{
 		return $result;
 	}
 
+	/*
+	|--------------------------------------------------------------------------
+	| Static Usage
+	|--------------------------------------------------------------------------
+	*/
+
 	/**
-	 * Called right after validation before inserting/updating to the database
+	 * Get the name of the table associated with the model.
 	 *
-	 * @param   array  $attributes  attribute array
-	 * @return  array
+	 * @return string
 	 */
-	protected function prep_attributes($attributes)
+	public static function table()
 	{
-		return $attributes;
+		return static::$table ?: strtolower(Str::plural(class_basename(new static)));
 	}
 
 	/**
-	 * Dynamically retrieve the value of an attribute.
+	 * Find a model by its primary key.
 	 *
-	 * @param  string  $key
-	 * @return mixed
+	 * @param  string  $id
+	 * @param  array   $columns
+	 * @return Model
 	 */
-	public function __get($key)
+	public static function find($id, $columns = array('*'))
 	{
-		if (array_key_exists($key, $this->attributes))
+		$model = new static;
+
+		$query = $model->query()->where($model->$key, '=', $id);
+
+		list($query, $columns) = $model->before_find($query, $columns);
+
+		$result = $query->take(1)->first($columns);
+
+		$result = $model->after_find($result);
+
+		if (count($result) > 0)
 		{
-			return $this->attributes[$key];
+			return $model->is_new(false)
+			             ->fill($result);
 		}
+
+		return null;
 	}
 
 	/**
-	 * Dynamically set the value of an attribute.
+	 * Get all of the models in the database.
 	 *
-	 * @param  string  $key
-	 * @param  mixed   $value
-	 * @return void
+	 * @return array
 	 */
-	public function __set($key, $value)
+	public static function all()
 	{
-		$this->attributes[$key] = $value;
+		$results = with(new static)->query()->get();
+		$models  = array();
+
+		foreach ($results as $result)
+		{
+			$models[] = new static($result, true);
+		}
+
+		return $models;
 	}
 
 	/**
-	 * Dynamically check if an attribute is set.
+	 * Get a new fluent query builder instance for the model.
 	 *
-	 * @param  string  $key
-	 * @return bool
+	 * @return Query
 	 */
-	public function __isset($key)
+	public static function query()
 	{
-		return isset($this->attributes[$key]);
+		return DB::connection(static::$connection)->table(static::table());
 	}
 
 	/**
-	 * Dynamically unset an attribute.
+	 * Returns the number of records in the table
 	 *
-	 * @param  string  $key
-	 * @return void
+	 * @param  string  column name to count on
+	 * @param  bool    get distinct records
+	 * @return int
 	 */
-	public function __unset($key)
+	public static function count($column = '*', $distinct = false)
 	{
-		unset($this->{$key});
-	}
+		$query = static::query();
 
+		if ($distinct)
+		{
+			$query = $query->distinct();
+		}
+
+		return $query->count($column);
+	}
 }

@@ -77,7 +77,7 @@ class Crud
 	 * @param  bool   $is_new
 	 * @return void
 	 */
-	public function __construct($attributes = array(), $is_new = null)
+	public function __construct($attributes = array(), $is_new = true)
 	{
 		// Hydrate our model
 		$this->fill((array) $attributes);
@@ -138,8 +138,6 @@ class Crud
 			$result = $query->update($attributes);
 
 			$result = $this->after_update($result);
-
-			$result = $query->update($attributes) === 1;
 		}
 
 		// If the model is new, we will insert the record and retrieve the last
@@ -168,6 +166,13 @@ class Crud
 	 */
 	public function delete()
 	{
+		// make sure a key is set then grab and remove it from the attributes array
+		if ( ! isset($this->{static::$key}) or empty($this->{static::$key}))
+		{
+			// the key is not set or empty, throw an exception
+			throw new \Exception('A primary key is required to delete.');
+		}
+
 		$query = $this->query()->where(static::$key, '=', $this->{static::$key});
 
 		$query = $this->before_delete($query);
@@ -210,11 +215,6 @@ class Crud
 	 */
 	public function validation()
 	{
-		if ( ! $this->validation)
-		{
-			$this->validation = Validator::make($attributes, static::$rules);
-		}
-
 		return $this->validation;
 	}
 
@@ -307,7 +307,9 @@ class Crud
 	{
 		$attributes = $this->before_validation($attributes);
 
-		$result = $this->after_validation($this->validation()->fails());
+		$this->validation = Validator::make($attributes, static::$rules);
+
+		$result = $this->after_validation($this->validation->fails());
 
 		return ($result) ? false : true;
 	}

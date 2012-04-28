@@ -83,7 +83,7 @@ class Crud
 		$this->fill((array) $attributes);
 
 		// Set is_new flag. If the primary key is passed, the model is not new
-		$this->is_new = ($is_new === null) ? ( !array_key_exists(static::$key, $attributes)) : (bool) $is_new;
+		$this->is_new = (bool) $is_new;
 	}
 
 	/**
@@ -121,7 +121,13 @@ class Crud
 		// fluent query instance. We'll set the where condition automatically.
 		if ( ! $this->is_new)
 		{
-			// grab the key and remove it from the attributes array
+			// make sure a key is set then grab and remove it from the attributes array
+			if ( ! isset($attributes[static::$key]) or empty($attributes[static::$key]))
+			{
+				// the key is not set or empty, throw an exception
+				throw new \Exception('A primary key is required to update.');
+			}
+
 			$key = $attributes[static::$key];
 			unset($attributes[static::$key]);
 
@@ -265,7 +271,7 @@ class Crud
 	 *
 	 * @return object|bool
 	 */
-	protected function is_new($is_new = null)
+	public function is_new($is_new = null)
 	{
 		if ($is_new === null)
 		{

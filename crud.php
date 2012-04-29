@@ -462,7 +462,7 @@ class Crud
 	{
 		$model = new static;
 
-		$query = $model->query()->where($model->$key, '=', $id);
+		$query = $model->query()->where(static::$key, '=', $id);
 
 		list($query, $columns) = $model->before_find($query, $columns);
 

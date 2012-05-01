@@ -28,7 +28,7 @@ We will get into some other properties you can change a little later on to incre
 
 #### Create
 
-To create a user, all you need to do is instantiate a new instance of the model with the data you wish to add and save it.
+To create a user, all you need to do is instantiate a new instance of the model with the data you wish to add and save it. If you pass a primary key, you need to set the model to new, by setting a 2nd paramter to User() as true, are calling is_new(true).  When passing a primary key, CRUD assumes you want to update, this will override that assumption.
 
 ```php
 // create a user object
@@ -43,6 +43,22 @@ $user = new User();
 $user->first_name = 'John',
 $user->last_name  = 'Doe',
 $user->email      = 'john.doe@crud.com';
+
+// or when passing a primary key
+$user = new User(array(
+	'id'         => 10
+	'first_name' => 'John',
+	'last_name'  => 'Doe',
+	'email'      => 'john.doe@crud.com'
+), true);
+
+// or
+$user = new User();
+$user->id         = 10
+$user->first_name = 'John',
+$user->last_name  = 'Doe',
+$user->email      = 'john.doe@crud.com';
+$user->is_new(true);
 
 // now save it
 $user->save();
@@ -95,25 +111,23 @@ $count = User::count('first_name', true); // counts distinct first_name's
 
 #### Update
 
-Updating works in the same way as creating, except you also need to pass the primary key value. Also, you need to pass a 2nd paramter to the user method, a boolean, to say that this object is not new or call the is_new() method to set it.
+Updating works in the same way as creating, except you also need to pass the primary key value. When passing a primary key value, CRUD will automatically assume that you want to update.
 
 ```php
 // create a user object
 $user = new User(array(
 	'id'    => 5
 	'email' => 'john.doe@update.com' // update the email
-), false);
+));
 
 // or
 $user = new User();
 $user->id    = 5,
 $user->email = 'john.doe@update.com';
-$user->is_new(false);
 
 // or
 $user = User::find(5);
 $user->email = 'john.doe@update.com';
-$user->is_new(false);
 
 // now save it
 $user->save();

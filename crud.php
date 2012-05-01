@@ -77,13 +77,19 @@ class Crud
 	 * @param  bool   $is_new
 	 * @return void
 	 */
-	public function __construct($attributes = array(), $is_new = true)
+	public function __construct($attributes = array(), $is_new = null)
 	{
 		// Hydrate our model
 		$this->fill((array) $attributes);
 
-		// Set is_new flag. If the primary key is passed, the model is not new
-		$this->is_new = (bool) $is_new;
+		// If the primary key is passed, the model is not new
+		$this->is_new = (array_key_exists(static::$key, $attributes)) ? false : true;
+
+		// override is_new if it was passed
+		if ($is_new)
+		{
+			$this->is_new = (bool) $is_new;
+		}
 	}
 
 	/**
@@ -462,7 +468,7 @@ class Crud
 	{
 		$model = new static;
 
-		$query = $model->query()->where($model->$key, '=', $id);
+		$query = $model->query()->where(static::$key, '=', $id);
 
 		list($query, $columns) = $model->before_find($query, $columns);
 

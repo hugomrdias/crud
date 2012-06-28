@@ -152,7 +152,7 @@ Note: If you try to delete a model and no primary key is set, an exception will 
 
 ### Advanced Settings
 
-As well as the primary key and table settings mentioned above, you can also set a connection, sequence, timestamps and validation rules for the model.  Connection and Sequence are straight forward, just set them to the value you wish.
+As well as the primary key and table settings mentioned above, you can also set a connection, sequence, timestamps and validation rules for the model. Connection and Sequence are straight forward, just set them to the value you wish.
 
 #### Timestamps
 

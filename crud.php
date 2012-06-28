@@ -587,7 +587,7 @@ class Crud implements ArrayAccess
 	 */
 	public static function table()
 	{
-		return static::$_table ?: STr::lower(Str::plural(class_basename(new static)));
+		return static::$_table ?: Str::lower(Str::plural(class_basename(new static)));
 	}
 
 	/**

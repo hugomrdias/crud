@@ -1,68 +1,102 @@
 <?php
+/**
+ * Part of the Crud bundle for Laravel.
+ *
+ * NOTICE OF LICENSE
+ *
+ * Licensed under the 3-clause BSD License.
+ *
+ * This source file is subject to the 3-clause BSD License that is
+ * bundled with this package in the LICENSE file.  It is also available at
+ * the following URL: http://www.opensource.org/licenses/BSD-3-Clause
+ *
+ * @package    Sentry
+ * @version    1.0
+ * @author     Cartalyst LLC
+ * @license    BSD License (3-clause)
+ * @copyright  (c) 2011 - 2012, Cartalyst LLC
+ * @link       http://cartalyst.com
+ */
 
-class Crud
+namespace Crud;
+
+use ArrayAccess;
+use Closure;
+use DB;
+use Event;
+use Exception;
+use Str;
+use Validator;
+
+/**
+ * Crud model class.
+ *
+ * @author  Daniel Petrie, Ben Corlett
+ */
+class Crud implements ArrayAccess
 {
 	/**
 	 * The primary key for the model on the database table.
 	 *
 	 * @var string
 	 */
-	public static $key = 'id';
+	protected static $_key = 'id';
 
 	/**
 	 * The name of the table associated with the model.
-	 * If left null, the table name will become the the plural of the class name: user => users
+	 * If left null, the table name will become the the plural of
+	 * the class name: user => users
 	 *
 	 * @var string
 	 */
-	protected static $table = null;
+	protected static $_table = null;
 
 	/**
 	 * The name of the database connection that should be used for the model.
 	 *
 	 * @var string
 	 */
-	protected static $connection = null;
+	protected static $_connection = null;
 
 	/**
 	 * The name of the sequence associated with the model.
 	 *
 	 * @var string
 	 */
-	protected static $sequence = null;
+	protected static $_sequence = null;
 
 	/**
 	 * Indicates if the model has update and creation timestamps.
 	 *
 	 * @var bool
 	 */
-	protected static $timestamps = true;
+	protected static $_timestamps = false;
+
+	/**
+	 * Indicates if the model should use events
+	 *
+	 * @var bool
+	 */
+	protected static $_events = true;
 
 	/**
 	 * Validation rules for model attributes.
 	 *
 	 * @var array
 	 */
-	protected static $rules = array();
-
-	/**
-	 * Attributes for the model
-	 *
-	 * @var array
-	 */
-	protected $attributes = array();
+	protected static $_rules = array();
 
 	/**
 	 * Indicates if the model is new or not (insert vs update).
 	 *
 	 * @var  bool
 	 */
-	protected $is_new = false;
+	protected $_is_new;
 
 	/**
 	 * @var  validation object
 	 */
-	protected $validation = null;
+	protected $_validation;
 
 	/*
 	|--------------------------------------------------------------------------
@@ -82,14 +116,8 @@ class Crud
 		// Hydrate our model
 		$this->fill((array) $attributes);
 
-		// If the primary key is passed, the model is not new
-		$this->is_new = (array_key_exists(static::$key, $attributes)) ? false : true;
-
-		// override is_new if it was passed
-		if ($is_new)
-		{
-			$this->is_new = (bool) $is_new;
-		}
+		// Set the $is_new flag
+		$this->_is_new = ($is_new === null) ? ( ! array_key_exists(static::key(), $attributes)) : (bool) $is_new;
 	}
 
 	/**
@@ -100,7 +128,7 @@ class Crud
 	public function save()
 	{
 		// first check if we want timestamps as this will append to attributes
-		if (static::$timestamps)
+		if (static::$_timestamps)
 		{
 			$this->timestamp();
 		}
@@ -108,12 +136,12 @@ class Crud
 		// now we grab the attributes
 		$attributes = $this->attributes();
 
-		// run validation if rules are set
-		if ( ! empty(static::$rules))
+		// run - if rules are set
+		if ( ! empty(static::$_rules))
 		{
-			$validated = $this->run_validation($attributes);
+			$validated = $this->run_validation($attributes, static::$_rules);
 
-			if ( ! $validated )
+			if ( ! $validated)
 			{
 				return false;
 			}
@@ -125,25 +153,31 @@ class Crud
 		// If the model is not new, we only need to update it in the database, and the update
 		// will be considered successful if there is one affected row returned from the
 		// fluent query instance. We'll set the where condition automatically.
-		if ( ! $this->is_new)
+		if ( ! $this->is_new())
 		{
 			// make sure a key is set then grab and remove it from the attributes array
-			if ( ! isset($attributes[static::$key]) or empty($attributes[static::$key]))
+			if ( ! isset($attributes[static::key()]) or empty($attributes[static::key()]))
 			{
 				// the key is not set or empty, throw an exception
-				throw new \Exception('A primary key is required to update.');
+				throw new Exception('A primary key is required to update.');
 			}
 
-			$key = $attributes[static::$key];
-			unset($attributes[static::$key]);
+			$key = $attributes[static::key()];
+			unset($attributes[static::key()]);
 
-			$query = $this->query()->where(static::$key, '=', $key);
+			$query = $this->query()->where(static::table().'.'.static::key(), '=', $key);
 
 			list($query, $attributes) = $this->before_update($query, $attributes);
 
 			$result = $query->update($attributes);
 
 			$result = $this->after_update($result);
+
+			if (static::$_events)
+			{
+				// fire update event
+				Event::fire(static::event().'.update', array($this));
+			}
 		}
 
 		// If the model is new, we will insert the record and retrieve the last
@@ -155,14 +189,40 @@ class Crud
 
 			list($query, $attributes) = $this->before_insert($query, $attributes);
 
-			$result = $this->query()->insert_get_id($attributes, static::$sequence);
+			$key = $this->query()->insert_get_id($attributes, static::$_sequence);
 
-			$result = $this->after_insert($result);
+			$key = $this->after_insert($key);
 
-			$this->is_new = ( (bool) $result ) ? false : true;
+			// Workaound for PDO connections not returning
+			// the key upon insert.
+			if (isset($this->{static::key()}) and $key === 0)
+			{
+				$this->{static::key()} = $key;
+				$this->is_new(false);
+			}
+			else
+			{
+				// If we didn't already have a primary
+				// key, assign what is returned from
+				// the database insert
+				if ( ! isset($this->{static::key()}))
+				{
+					$this->{static::key()} = $key;
+				}
+
+				$this->is_new( ! (bool) $key);
+			}
+
+			$this->fill($attributes);
+
+			if (static::$_events)
+			{
+				// fire create event
+				Event::fire(static::event().'.create', array($this));
+			}
 		}
 
-		return $result;
+		return $key;
 	}
 
 	/**
@@ -173,17 +233,23 @@ class Crud
 	public function delete()
 	{
 		// make sure a key is set then grab and remove it from the attributes array
-		if ( ! isset($this->{static::$key}) or empty($this->{static::$key}))
+		if ( ! isset($this->{static::key()}) or empty($this->{static::key()}))
 		{
 			// the key is not set or empty, throw an exception
-			throw new \Exception('A primary key is required to delete.');
+			throw new Exception('A primary key is required to delete.');
 		}
 
-		$query = $this->query()->where(static::$key, '=', $this->{static::$key});
+		$query = $this->query()->where(static::table().'.'.static::key(), '=', $this->{static::key()});
 
 		$query = $this->before_delete($query);
 		$result = $query->delete();
 		$result = $this->after_delete($result);
+
+		if (static::$_events)
+		{
+			// fire delete event
+			Event::fire(static::event().'.delete', array($this));
+		}
 
 		return $result;
 	}
@@ -198,7 +264,7 @@ class Crud
 	{
 		foreach ($attributes as $key => $value)
 		{
-			$this->attributes[$key] = $value;
+			$this->{$key} = $value;
 		}
 
 		return $this;
@@ -211,7 +277,7 @@ class Crud
 	 */
 	public function attributes()
 	{
-		return $this->attributes;
+		return get_object_public_vars($this);
 	}
 
 	/**
@@ -221,21 +287,7 @@ class Crud
 	 */
 	public function validation()
 	{
-		return $this->validation;
-	}
-
-	/**
-	 * Dynamically retrieve the value of an attribute.
-	 *
-	 * @param  string  $key
-	 * @return mixed
-	 */
-	public function __get($key)
-	{
-		if (array_key_exists($key, $this->attributes))
-		{
-			return $this->attributes[$key];
-		}
+		return $this->_validation;
 	}
 
 	/**
@@ -247,7 +299,7 @@ class Crud
 	 */
 	public function __set($key, $value)
 	{
-		$this->attributes[$key] = $value;
+		$this->{$key} = $value;
 	}
 
 	/**
@@ -258,7 +310,7 @@ class Crud
 	 */
 	public function __isset($key)
 	{
-		return isset($this->attributes[$key]);
+		return isset($this->{$key});
 	}
 
 	/**
@@ -281,10 +333,10 @@ class Crud
 	{
 		if ($is_new === null)
 		{
-			return $this->is_new;
+			return $this->_is_new;
 		}
 
-		$this->is_new = (bool) $is_new;
+		$this->_is_new = (bool) $is_new;
 
 		return $this;
 	}
@@ -298,7 +350,7 @@ class Crud
 	{
 		$this->updated_at = time();
 
-		if ($this->is_new)
+		if ($this->is_new())
 		{
 			$this->created_at = $this->updated_at;
 		}
@@ -309,13 +361,13 @@ class Crud
 	 *
 	 * @return bool
 	 */
-	protected function run_validation($attributes)
+	protected function run_validation($attributes, $rules)
 	{
-		$attributes = $this->before_validation($attributes);
+		list($attributes, $rules) = $this->before_validation($attributes, $rules);
 
-		$this->validation = Validator::make($attributes, static::$rules);
+		$this->_validation = Validator::make($attributes, $rules);
 
-		$result = $this->after_validation($this->validation->fails());
+		$result = $this->after_validation($this->_validation->fails());
 
 		return ($result) ? false : true;
 	}
@@ -326,9 +378,9 @@ class Crud
 	 * @param   array  $data  The validation data
 	 * @return  array
 	 */
-	protected function before_validation($data)
+	protected function before_validation($data, $rules)
 	{
-		return $data;
+		return array($data, $rules);
 	}
 
 	/**
@@ -443,9 +495,75 @@ class Crud
 
 	/*
 	|--------------------------------------------------------------------------
+	| ArrayAccess Implementation
+	|--------------------------------------------------------------------------
+	*/
+
+	/**
+	 * Sets the value of the given offset (class property).
+	 *
+	 * @param   string  $key
+	 * @param   string  $value
+	 * @return  void
+	 */
+	public function offsetSet($key, $value)
+	{
+		$this->{$key} = $value;
+	}
+
+	/**
+	 * Checks if the given offset (class property) exists.
+	 *
+	 * @param   string  $key
+	 * @return  bool
+	 */
+	public function offsetExists($key)
+	{
+		return isset($this->{$key});
+	}
+
+	/**
+	 * Unsets the given offset (class property).
+	 *
+	 * @param   string  $key
+	 * @return  void
+	 */
+	public function offsetUnset($key)
+	{
+		unset($this->{$key});
+	}
+
+	/**
+	 * Gets the value of the given offset (class property).
+	 *
+	 * @param   string  $key
+	 * @return  mixed
+	 */
+	public function offsetGet($key)
+	{
+		if (isset($this->{$key}))
+		{
+			return $this->{$key};
+		}
+
+		throw new Exception('Property "'.$key.'" not found for '.get_called_class().'.');
+	}
+
+	/*
+	|--------------------------------------------------------------------------
 	| Static Usage
 	|--------------------------------------------------------------------------
 	*/
+
+	/**
+	 * Get the key of the table
+	 *
+	 * @return string
+	 */
+	public static function key()
+	{
+		return static::$_key;
+	}
 
 	/**
 	 * Get the name of the table associated with the model.
@@ -454,26 +572,60 @@ class Crud
 	 */
 	public static function table()
 	{
-		return static::$table ?: strtolower(Str::plural(class_basename(new static)));
+		return static::$_table ?: STr::lower(Str::plural(class_basename(new static)));
 	}
 
 	/**
-	 * Find a model by its primary key.
+	 * Get the event name associated with the model
 	 *
-	 * @param  string  $id
+	 * @return string
+	 */
+	public static function event()
+	{
+		return Str::lower(class_basename(new static));
+	}
+
+	/**
+	 * Find a model by either it's primary key
+	 * or a condition that modifies the query object.
+	 *
+	 * @param  string  $condition
 	 * @param  array   $columns
 	 * @return Model
 	 */
-	public static function find($id, $columns = array('*'))
+	public static function find($condition = 'first', $columns = array('*'))
 	{
 		$model = new static;
+		$query = $model->query();
 
-		$query = $model->query()->where(static::$key, '=', $id);
+		// User has a closure of the query
+		// as the condition
+		if ($condition instanceof Closure)
+		{
+			$query = $condition($query);
+		}
+
+		elseif ($condition == 'first')
+		{
+			$query->order_by(static::table().'.'.static::key(), 'asc');
+		}
+
+		// After last result
+		elseif ($condition == 'last')
+		{
+			$query->order_by(static::table().'.'.static::key(), 'desc');
+		}
+
+		// Providing either an int or string for
+		// the primary key
+		else
+		{
+			$query = $query->where(static::table().'.'.static::key(), '=', $condition);
+		}
 
 		list($query, $columns) = $model->before_find($query, $columns);
 
-		$result = $query->take(1)->first($columns);
-
+		$result = $query->first($columns);
 		$result = $model->after_find($result);
 
 		if (count($result) > 0)
@@ -488,16 +640,27 @@ class Crud
 	/**
 	 * Get all of the models in the database.
 	 *
+	 * @param  Closure  $conditions
+	 * @param  String|Array  columns to select
 	 * @return array
 	 */
-	public static function all()
+	public static function all($conditions = null, $columns = '*')
 	{
-		$results = with(new static)->query()->get();
+		$query = with(new static)->query();
+
+		if ($conditions instanceof Closure)
+		{
+			$query = $conditions($query, $columns);
+		}
+
+		list($query, $columns) = static::before_all($query, $columns);
+		$results = $query->get($columns);
+		$results = static::after_all($results);
 		$models  = array();
 
 		foreach ($results as $result)
 		{
-			$models[] = new static($result, true);
+			$models[] = new static($result);
 		}
 
 		return $models;
@@ -510,7 +673,7 @@ class Crud
 	 */
 	public static function query()
 	{
-		return DB::connection(static::$connection)->table(static::table());
+		return DB::connection(static::$_connection)->table(static::table());
 	}
 
 	/**
@@ -520,15 +683,56 @@ class Crud
 	 * @param  bool    get distinct records
 	 * @return int
 	 */
-	public static function count($column = '*', $distinct = false)
+	public static function count($column = '*', $closure = null)
 	{
 		$query = static::query();
 
-		if ($distinct)
+		if ($closure instanceof Closure)
 		{
-			$query = $query->distinct();
+			$query = $closure($query);
 		}
 
 		return $query->count($column);
+	}
+
+	/**
+	 * Returns the number of records in the table
+	 *
+	 * @param  string  column name to count on
+	 * @param  bool    get distinct records
+	 * @return int
+	 */
+	public static function count_distinct($column = '*', $closure = null)
+	{
+		$query = static::query();
+
+		if ($closure instanceof Closure)
+		{
+			$query = $closure($query);
+		}
+
+		return $query->distinct()->count($column);
+	}
+
+	/**
+	 * Gets called before all() is executed to modify the query
+	 * Must return an array of the query object and columns array($query, $columns)
+	 *
+	 * @return  array  $query object and $columns array
+	 */
+	protected static function before_all($query, $columns)
+	{
+		return array($query, $columns);
+	}
+
+	/**
+	 * Gets call after the find() query is exectuted to modify the result
+	 * Must return a proper result
+	 *
+	 * @return  object  Model object result
+	 */
+	protected static function after_all($results)
+	{
+		return $results;
 	}
 }

@@ -107,9 +107,9 @@ class Crud implements ArrayAccess
 	/**
 	 * Create a new Crud model instance.
 	 *
-	 * @param  array  $attributes
-	 * @param  bool   $is_new
-	 * @return void
+	 * @param   array  $attributes
+	 * @param   bool   $is_new
+	 * @return  void
 	 */
 	public function __construct($attributes = array(), $is_new = null)
 	{
@@ -123,7 +123,7 @@ class Crud implements ArrayAccess
 	/**
 	 * Save the model instance to the database.
 	 *
-	 * @return bool
+	 * @return  int
 	 */
 	public function save()
 	{
@@ -228,7 +228,7 @@ class Crud implements ArrayAccess
 	/**
 	 * Delete a model from the datatabase
 	 *
-	 * @return  bool
+	 * @return  int
 	 */
 	public function delete()
 	{
@@ -257,8 +257,8 @@ class Crud implements ArrayAccess
 	/**
 	 * Hydrate the model with an array of attributes.
 	 *
-	 * @param  array  $attributes
-	 * @return Model
+	 * @param   array  $attributes
+	 * @return  Crud
 	 */
 	public function fill($attributes = array())
 	{
@@ -273,7 +273,7 @@ class Crud implements ArrayAccess
 	/**
 	 * Get all the attributes of the model.
 	 *
-	 * @return array
+	 * @return  array
 	 */
 	public function attributes()
 	{
@@ -283,7 +283,7 @@ class Crud implements ArrayAccess
 	/**
 	 * Returns the a validation object for the model.
 	 *
-	 * @return  object  Validation object
+	 * @return  Validation
 	 */
 	public function validation()
 	{
@@ -293,9 +293,9 @@ class Crud implements ArrayAccess
 	/**
 	 * Dynamically set the value of an attribute.
 	 *
-	 * @param  string  $key
-	 * @param  mixed   $value
-	 * @return void
+	 * @param   string  $key
+	 * @param   mixed   $value
+	 * @return  void
 	 */
 	public function __set($key, $value)
 	{
@@ -305,8 +305,8 @@ class Crud implements ArrayAccess
 	/**
 	 * Dynamically check if an attribute is set.
 	 *
-	 * @param  string  $key
-	 * @return bool
+	 * @param   string  $key
+	 * @return  bool
 	 */
 	public function __isset($key)
 	{
@@ -316,8 +316,8 @@ class Crud implements ArrayAccess
 	/**
 	 * Dynamically unset an attribute.
 	 *
-	 * @param  string  $key
-	 * @return void
+	 * @param   string  $key
+	 * @return  void
 	 */
 	public function __unset($key)
 	{
@@ -327,7 +327,8 @@ class Crud implements ArrayAccess
 	/**
 	 * Set or Determine if the model is new or not
 	 *
-	 * @return object|bool
+	 * @param   bool  $is_new
+	 * @return  bool|Crud
 	 */
 	public function is_new($is_new = null)
 	{
@@ -359,7 +360,9 @@ class Crud implements ArrayAccess
 	/**
 	 * Run validation
 	 *
-	 * @return bool
+	 * @param   array  $attributes
+	 * @param   array  $rultes
+	 * @return  bool
 	 */
 	protected function run_validation($attributes, $rules)
 	{
@@ -369,13 +372,14 @@ class Crud implements ArrayAccess
 
 		$result = $this->after_validation($this->_validation->fails());
 
-		return ($result) ? false : true;
+		return ( ! (bool) $result);
 	}
 
 	/**
 	 * Gets called before the validation is ran.
 	 *
-	 * @param   array  $data  The validation data
+	 * @param   array  $data
+	 * @param   array  $rults
 	 * @return  array
 	 */
 	protected function before_validation($data, $rules)
@@ -386,7 +390,7 @@ class Crud implements ArrayAccess
 	/**
 	 * Called right after the validation is ran.
 	 *
-	 * @param   bool  $result  Validation result
+	 * @param   bool  $result
 	 * @return  bool
 	 */
 	protected function after_validation($result)
@@ -397,7 +401,7 @@ class Crud implements ArrayAccess
 	/**
 	 * Called right after validation before inserting/updating to the database
 	 *
-	 * @param   array  $attributes  attribute array
+	 * @param   array  $attributes
 	 * @return  array
 	 */
 	protected function prep_attributes($attributes)
@@ -409,7 +413,9 @@ class Crud implements ArrayAccess
 	 * Gets called before insert() is executed to modify the query
 	 * Must return an array of the query object and columns array($query, $columns)
 	 *
-	 * @return  array  $query object and $columns array
+	 * @param   Query  $query
+	 * @param   array  $columns
+	 * @return  array
 	 */
 	protected function before_insert($query, $columns)
 	{
@@ -420,7 +426,8 @@ class Crud implements ArrayAccess
 	 * Gets call after the insert() query is exectuted to modify the result
 	 * Must return a proper result
 	 *
-	 * @return  object  Model object result
+	 * @param   array  $result
+	 * @return  array  $result
 	 */
 	protected function after_insert($result)
 	{
@@ -431,7 +438,9 @@ class Crud implements ArrayAccess
 	 * Gets called before update() is executed to modify the query
 	 * Must return an array of the query object and columns array($query, $columns)
 	 *
-	 * @return  array  $query object and $columns array
+	 * @param   Query  $query
+	 * @param   array  $columns
+	 * @return  array
 	 */
 	protected function before_update($query, $columns)
 	{
@@ -442,7 +451,7 @@ class Crud implements ArrayAccess
 	 * Gets call after the update() query is exectuted to modify the result
 	 * Must return a proper result
 	 *
-	 * @return  object  Model object result
+	 * @return  array
 	 */
 	protected function after_update($result)
 	{
@@ -453,7 +462,8 @@ class Crud implements ArrayAccess
 	 * Gets called before delete() is executed to modify the query
 	 * Must return an array of the query object and columns array($query, $columns)
 	 *
-	 * @return  array  $query object and $columns array
+	 * @param   Query  $query
+	 * @return  Query  $query
 	 */
 	protected function before_delete($query)
 	{
@@ -464,7 +474,8 @@ class Crud implements ArrayAccess
 	 * Gets call after the delete() query is exectuted to modify the result
 	 * Must return a proper result
 	 *
-	 * @return  object  Model object result
+	 * @param   int  $result
+	 * @return  int  $result
 	 */
 	protected function after_delete($result)
 	{
@@ -475,7 +486,9 @@ class Crud implements ArrayAccess
 	 * Gets called before find() is executed to modify the query
 	 * Must return an array of the query object and columns array($query, $columns)
 	 *
-	 * @return  array  $query object and $columns array
+	 * @param   Query  $query
+	 * @param   array  $columns
+	 * @return  array
 	 */
 	protected function before_find($query, $columns)
 	{
@@ -486,7 +499,9 @@ class Crud implements ArrayAccess
 	 * Gets call after the find() query is exectuted to modify the result
 	 * Must return a proper result
 	 *
-	 * @return  object  Model object result
+	 * @param   Query  $query
+	 * @param   array  $columns
+	 * @return  array
 	 */
 	protected function after_find($result)
 	{
@@ -558,7 +573,7 @@ class Crud implements ArrayAccess
 	/**
 	 * Get the key of the table
 	 *
-	 * @return string
+	 * @return  string
 	 */
 	public static function key()
 	{
@@ -568,7 +583,7 @@ class Crud implements ArrayAccess
 	/**
 	 * Get the name of the table associated with the model.
 	 *
-	 * @return string
+	 * @return  string
 	 */
 	public static function table()
 	{
@@ -578,7 +593,7 @@ class Crud implements ArrayAccess
 	/**
 	 * Get the event name associated with the model
 	 *
-	 * @return string
+	 * @return  string
 	 */
 	public static function event()
 	{
@@ -589,9 +604,9 @@ class Crud implements ArrayAccess
 	 * Find a model by either it's primary key
 	 * or a condition that modifies the query object.
 	 *
-	 * @param  string  $condition
-	 * @param  array   $columns
-	 * @return Model
+	 * @param   string  $condition
+	 * @param   array   $columns
+	 * @return  Crud
 	 */
 	public static function find($condition = 'first', $columns = array('*'))
 	{
@@ -640,17 +655,17 @@ class Crud implements ArrayAccess
 	/**
 	 * Get all of the models in the database.
 	 *
-	 * @param  Closure  $conditions
-	 * @param  String|Array  columns to select
-	 * @return array
+	 * @param   Closure      $condition
+	 * @param   String|Array columns to select
+	 * @return  array
 	 */
-	public static function all($conditions = null, $columns = '*')
+	public static function all($condition = null, $columns = '*')
 	{
 		$query = with(new static)->query();
 
-		if ($conditions instanceof Closure)
+		if ($condition instanceof Closure)
 		{
-			$query = $conditions($query, $columns);
+			$query = $condition($query, $columns);
 		}
 
 		list($query, $columns) = static::before_all($query, $columns);
@@ -667,9 +682,47 @@ class Crud implements ArrayAccess
 	}
 
 	/**
+	 * Returns the number of records in the table.
+	 *
+	 * @param   string  $column
+	 * @param   Closure $condition
+	 * @return  int
+	 */
+	public static function count($column = null, $condition = null)
+	{
+		$query = static::query();
+
+		if ($condition instanceof Closure)
+		{
+			$query = $condition($query);
+		}
+
+		return $query->count($column ?: static::key());
+	}
+
+	/**
+	 * Returns the number of distinct records in the table.
+	 *
+	 * @param   string  $column
+	 * @param   Closure $condition
+	 * @return  int
+	 */
+	public static function count_distinct($column = null, $condition = null)
+	{
+		$query = static::query();
+
+		if ($condition instanceof Closure)
+		{
+			$query = $condition($query);
+		}
+
+		return $query->distinct()->count($column ?: static::key());
+	}
+
+	/**
 	 * Get a new fluent query builder instance for the model.
 	 *
-	 * @return Query
+	 * @return  Query
 	 */
 	public static function query()
 	{
@@ -677,48 +730,12 @@ class Crud implements ArrayAccess
 	}
 
 	/**
-	 * Returns the number of records in the table
-	 *
-	 * @param  string  column name to count on
-	 * @param  bool    get distinct records
-	 * @return int
-	 */
-	public static function count($column = '*', $closure = null)
-	{
-		$query = static::query();
-
-		if ($closure instanceof Closure)
-		{
-			$query = $closure($query);
-		}
-
-		return $query->count($column);
-	}
-
-	/**
-	 * Returns the number of records in the table
-	 *
-	 * @param  string  column name to count on
-	 * @param  bool    get distinct records
-	 * @return int
-	 */
-	public static function count_distinct($column = '*', $closure = null)
-	{
-		$query = static::query();
-
-		if ($closure instanceof Closure)
-		{
-			$query = $closure($query);
-		}
-
-		return $query->distinct()->count($column);
-	}
-
-	/**
 	 * Gets called before all() is executed to modify the query
 	 * Must return an array of the query object and columns array($query, $columns)
 	 *
-	 * @return  array  $query object and $columns array
+	 * @param   Query  $query
+	 * @param   array  $columns
+	 * @return  array
 	 */
 	protected static function before_all($query, $columns)
 	{
@@ -726,10 +743,11 @@ class Crud implements ArrayAccess
 	}
 
 	/**
-	 * Gets call after the find() query is exectuted to modify the result
+	 * Gets called after the all() query is exectuted to modify the result
 	 * Must return a proper result
 	 *
-	 * @return  object  Model object result
+	 * @param   array  $results
+	 * @return  array  $results
 	 */
 	protected static function after_all($results)
 	{

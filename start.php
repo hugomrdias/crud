@@ -19,12 +19,11 @@
  */
 
 // Autoload classes
-Autoloader::map(array(
-    'Crud\\Crud' => __DIR__.DS.'crud.php',
+Autoloader::namespaces(array(
+	'Crud' => Bundle::path('crud'),
 ));
 
-// Set the global alias for Crud
+// Set the global alias
 Autoloader::alias('Crud\\Crud', 'Crud');
 
-// Load Crud helper functions
 require_once __DIR__.DS.'helpers.php';

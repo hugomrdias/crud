@@ -125,7 +125,7 @@ class Crud implements ArrayAccess
 	 *
 	 * @return  int
 	 */
-	public function save()
+	public function save($events = array('before', 'after'))
 	{
 		// first check if we want timestamps as this will append to attributes
 		if (static::$_timestamps)
@@ -167,11 +167,17 @@ class Crud implements ArrayAccess
 
 			$query = $this->query()->where(static::table().'.'.static::key(), '=', $key);
 
-			list($query, $attributes) = $this->before_update($query, $attributes);
+			if (in_array('before', $events))
+			{
+				list($query, $attributes) = $this->before_update($query, $attributes);
+			}
 
 			$result = $query->update($attributes);
 
-			$result = $this->after_update($result);
+			if (in_array('after', $events))
+			{
+				$result = $this->after_update($result);
+			}
 
 			if (static::$_events)
 			{
@@ -187,11 +193,17 @@ class Crud implements ArrayAccess
 		{
 			$query = $this->query();
 
-			list($query, $attributes) = $this->before_insert($query, $attributes);
+			if (in_array('before', $events))
+			{
+				list($query, $attributes) = $this->before_insert($query, $attributes);
+			}
 
 			$key = $this->query()->insert_get_id($attributes, static::$_sequence);
 
-			$key = $this->after_insert($key);
+			if (in_array('after', $events))
+			{
+				$key = $this->after_insert($key);
+			}
 
 			// Workaound for PDO connections not returning
 			// the key upon insert.
@@ -230,7 +242,7 @@ class Crud implements ArrayAccess
 	 *
 	 * @return  int
 	 */
-	public function delete()
+	public function delete($events = array('before', 'after'))
 	{
 		// make sure a key is set then grab and remove it from the attributes array
 		if ( ! isset($this->{static::key()}) or empty($this->{static::key()}))
@@ -241,9 +253,17 @@ class Crud implements ArrayAccess
 
 		$query = $this->query()->where(static::table().'.'.static::key(), '=', $this->{static::key()});
 
-		$query = $this->before_delete($query);
+		if (in_array('before', $events))
+		{
+			$query = $this->before_delete($query);
+		}
+
 		$result = $query->delete();
-		$result = $this->after_delete($result);
+		
+		if (in_array('after', $events))
+		{
+			$result = $this->after_delete($result);
+		}
 
 		if (static::$_events)
 		{
@@ -608,7 +628,7 @@ class Crud implements ArrayAccess
 	 * @param   array   $columns
 	 * @return  Crud
 	 */
-	public static function find($condition = 'first', $columns = array('*'))
+	public static function find($condition = 'first', $columns = array('*'), $events = array('before', 'after'))
 	{
 		$model = new static;
 		$query = $model->query();
@@ -638,10 +658,17 @@ class Crud implements ArrayAccess
 			$query = $query->where(static::table().'.'.static::key(), '=', $condition);
 		}
 
-		list($query, $columns) = $model->before_find($query, $columns);
+		if (in_array('before', $events))
+		{
+			list($query, $columns) = $model->before_find($query, $columns);
+		}
 
 		$result = $query->first($columns);
-		$result = $model->after_find($result);
+
+		if (in_array('after', $events))
+		{
+			$result = $model->after_find($result);
+		}
 
 		if (count($result) > 0)
 		{
@@ -659,7 +686,7 @@ class Crud implements ArrayAccess
 	 * @param   String|Array columns to select
 	 * @return  array
 	 */
-	public static function all($condition = null, $columns = '*')
+	public static function all($condition = null, $columns = '*', $events = array('before', 'after'))
 	{
 		$query = with(new static)->query();
 
@@ -668,9 +695,18 @@ class Crud implements ArrayAccess
 			$query = $condition($query, $columns);
 		}
 
-		list($query, $columns) = static::before_all($query, $columns);
+		if (in_array('before', $events))
+		{
+			list($query, $columns) = static::before_all($query, $columns);
+		}
+
 		$results = $query->get($columns);
-		$results = static::after_all($results);
+
+		if (in_array('after', $events))
+		{
+			$results = static::after_all($results);
+		}
+
 		$models  = array();
 
 		foreach ($results as $result)

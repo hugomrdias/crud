@@ -703,6 +703,27 @@ class Crud implements ArrayAccess
 
 		$result = $query->first($columns);
 
+		// Flag for convert timestamps
+		$convert_timestamps = (static::$_timestamps == true and ! is_null(static::$_timestamp_instance_format) and static::$_timestamp_instance_format !== static::$_timestamp_persist_format) ? static::$_timestamp_instance_format : false;
+
+		if ($convert_timestamps)
+		{
+			if (isset($result->created_at))
+			{
+				if ($convert_timestamps === 'unix')
+				{
+					$result->created_at = strtotime($result->created_at);
+				}
+			}
+			if (isset($result->updated_at))
+			{
+				if ($convert_timestamps === 'unix')
+				{
+					$result->updated_at = strtotime($result->updated_at);
+				}
+			}
+		}
+
 		if (in_array('after', $events))
 		{
 			$result = $model->after_find($result);
@@ -756,11 +777,17 @@ class Crud implements ArrayAccess
 			{
 				if (isset($result->created_at))
 				{
-					$result->created_at = strtotime($result->created_at);
+					if ($convert_timestamps === 'unix')
+					{
+						$result->created_at = strtotime($result->created_at);
+					}
 				}
 				if (isset($result->updated_at))
 				{
-					$result->updated_at = strtotime($result->updated_at);
+					if ($convert_timestamps === 'unix')
+					{
+						$result->updated_at = strtotime($result->updated_at);
+					}
 				}
 			}
 

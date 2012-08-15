@@ -409,10 +409,6 @@ class Crud implements ArrayAccess
 		{
 			$this->created_at = $this->updated_at;
 		}
-
-		echo '<pre>';
-
-		print_r($this);
 	}
 
 	/**

@@ -35,6 +35,7 @@ use Validator;
  */
 class Crud implements ArrayAccess
 {
+
 	/**
 	 * The primary key for the model on the database table.
 	 *
@@ -71,6 +72,27 @@ class Crud implements ArrayAccess
 	 * @var bool
 	 */
 	protected static $_timestamps = false;
+
+	/**
+	 * The timestamp format for the model. Only available if the
+	 * timestamps are set to true.
+	 *
+	 * SQL timestamps are converted to the correct format based
+	 * on the connection used in the model (which are defined in
+	 * each Laravel driver's Grammar class).
+	 *
+	 * Possible values:
+	 *	- 'sql'
+	 *	- 'unix'
+	 *
+	 * If the persist format is left NULL then 'sql' is used.
+	 * If the instance format is left NULL then the persiste
+	 * format is used.
+	 *
+	 * @var string
+	 */
+	protected static $_timestamp_persist_format  = 'sql';
+	protected static $_timestamp_instance_format = 'unix';
 
 	/**
 	 * Indicates if the model should use events
@@ -128,7 +150,7 @@ class Crud implements ArrayAccess
 	public function save($events = array('before', 'after'))
 	{
 		// first check if we want timestamps as this will append to attributes
-		if (static::$_timestamps)
+		if (static::$_timestamps === true)
 		{
 			$this->timestamp();
 		}
@@ -369,12 +391,28 @@ class Crud implements ArrayAccess
 	 */
 	protected function timestamp()
 	{
-		$this->updated_at = time();
+		// Get the timestamp
+		$timestamp = time();
+
+		// Default the timestamp format
+		$format = static::$_timestamp_persist_format ?: 'sql';
+
+		// Using SQL timestamps?
+		if ($format === 'sql')
+		{
+			$timestamp = date(DB::connection(static::$_connection)->grammar()->grammar->datetime, $timestamp);
+		}
+
+		$this->updated_at = $timestamp;
 
 		if ($this->is_new())
 		{
 			$this->created_at = $this->updated_at;
 		}
+
+		echo '<pre>';
+
+		print_r($this);
 	}
 
 	/**
@@ -709,8 +747,23 @@ class Crud implements ArrayAccess
 
 		$models  = array();
 
+		// Flag for convert timestamps
+		$convert_timestamps = (static::$_timestamps == true and ! is_null(static::$_timestamp_instance_format) and static::$_timestamp_instance_format !== static::$_timestamp_persist_format) ? static::$_timestamp_instance_format : false;
+
 		foreach ($results as $result)
 		{
+			if ($convert_timestamps)
+			{
+				if (isset($result->created_at))
+				{
+					$result->created_at = strtotime($result->created_at);
+				}
+				if (isset($result->updated_at))
+				{
+					$result->updated_at = strtotime($result->updated_at);
+				}
+			}
+
 			$models[] = new static($result);
 		}
 
@@ -789,4 +842,5 @@ class Crud implements ArrayAccess
 	{
 		return $results;
 	}
+
 }
